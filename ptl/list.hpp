@@ -41,7 +41,7 @@ namespace ptl {
                 }
 
                 auto operator--(int) -> NodePtr {
-                    Node<T>* current = list_ptr;
+                    NodePtr current = list_ptr;
                     list_ptr--;
                     return current;
                 }
@@ -92,7 +92,7 @@ namespace ptl {
                     this->m_ListHead = nullptr;
                     this->m_ListTail = nullptr;
                     this->m_Size = 0;
-                    Node<T>* ptr { other.m_ListHead };
+                    NodePtr ptr { other.m_ListHead };
                     while (ptr != nullptr) {
                         push_back(ptr->data);
                         ptr = ptr->next;
@@ -128,7 +128,7 @@ namespace ptl {
                 }
 
                 auto operator=(const LinkedList<T>& other) -> LinkedList<T>& {
-                    Node<T>* ptr { other.m_ListHead };
+                    NodePtr ptr { other.m_ListHead };
                     while (ptr != nullptr) {
                         push_back(ptr->data);
                         ptr = ptr->next;
@@ -141,7 +141,7 @@ namespace ptl {
                         push_front(new_data);
                         return;
                     }
-                    Node<T>* temp { new Node<T>() };
+                    NodePtr temp { new Node<T>() };
                     temp->data = new_data;
                     temp->next = nullptr;
                     m_ListTail->next = temp;
@@ -150,7 +150,7 @@ namespace ptl {
                 }
 
                 auto push_front(T new_data) -> void {
-                    Node<T>* temp { new Node<T>() };
+                    NodePtr temp { new Node<T>() };
                     temp->data = new_data;
                     temp->next = m_ListHead;
                     m_ListHead = temp;
@@ -161,7 +161,7 @@ namespace ptl {
                 }
 
                 auto insert(iterator it, const T& data) -> void {
-                    Node<T>* temp { new Node<T>() };
+                    NodePtr temp { new Node<T>() };
                     temp->data = data;
                     temp->next = it->next;
                     it->next = temp;
@@ -179,7 +179,7 @@ namespace ptl {
                         return;
                     }
 
-                    Node<T>* current { m_ListHead };
+                    NodePtr current { m_ListHead };
                     m_ListHead = m_ListHead->next;
                     delete current;
                     m_Size --;
@@ -196,7 +196,7 @@ namespace ptl {
                         return;
                     }
 
-                    Node<T>* ptr { m_ListHead };
+                    NodePtr ptr { m_ListHead };
                     while (ptr->next != nullptr)
                     {
                         if (ptr->next->next == nullptr) m_ListTail = ptr;
@@ -218,8 +218,8 @@ namespace ptl {
                 auto clear() -> void {
                     if (m_Size == 0) return;
 
-                    Node<T>* current {m_ListHead};
-                    Node<T>* next_node {nullptr};
+                    NodePtr current {m_ListHead};
+                    NodePtr next_node {nullptr};
 
                     while (current != nullptr)
                     {
@@ -239,7 +239,7 @@ namespace ptl {
                 auto at(size_t index) const -> T& {
                     if (index >= m_Size) throw std::logic_error("Index out of bounds.");
                     size_t i {};
-                    Node<T>* list { m_ListHead };
+                    NodePtr list { m_ListHead };
                     while (i < m_Size && i != index && list != nullptr) {
                         list = list->next;
                         i ++;
@@ -265,8 +265,8 @@ namespace ptl {
                 }
 
                 ~LinkedList() {
-                    Node<T>* current { m_ListHead };
-                    Node<T>* next_node {};
+                    NodePtr current { m_ListHead };
+                    NodePtr next_node {};
 
                     while (current != nullptr) {
                         next_node = current->next;
