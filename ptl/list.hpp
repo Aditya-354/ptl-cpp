@@ -15,7 +15,7 @@ namespace ptl {
         class ListIterator
         {
             public:
-                using ValueType = T::ValueType;
+                using ValueType = typename T::ValueType;
                 using NodePtr = typename T::NodePtr;
 
                 ListIterator() = default;
