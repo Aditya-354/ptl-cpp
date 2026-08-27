@@ -2,7 +2,7 @@
 // #include <print>
 #include "../ptl/list.hpp"
 
-auto test() -> void {
+void test() {
     std::cout << "Testing " << __PRETTY_FUNCTION__ << ":\n";
     ptl::LinkedList<int> list1  = {1, 2, 3, 4, 5, 6};
     ptl::LinkedList<int> list2 {2, 4, 5};
@@ -27,7 +27,7 @@ auto test() -> void {
         std::cout << o << '\n';
 }
 
-auto main() -> int
+int main()
 {
     test();
     return 0;
