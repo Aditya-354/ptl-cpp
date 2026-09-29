@@ -1,279 +1,427 @@
-#ifndef __LIST_PTL_HPP__
-#define __LIST_PTL_HPP__
+#ifndef __DSA_LIST_HPP__
+#define __DSA_LIST_HPP__
 
 #include <initializer_list>
 #include <iostream>
+#include <memory>
+#include <cassert>
 
-namespace ptl {
-    template<typename NodeType>
-        struct Node {
-            NodeType data;
-            Node* next;
-        };
-
+namespace dsa {
     template<typename T>
+
         class ListIterator
         {
             public:
                 using ValueType = typename T::ValueType;
                 using NodePtr = typename T::NodePtr;
+                using Iterator = typename T::iterator;
 
+            private:
+                NodePtr m_ptr {nullptr};
+
+            public:
                 ListIterator() = default;
 
-                ListIterator(NodePtr ptr)
-                    : list_ptr{ptr}
-                {}
+                ListIterator(NodePtr ptr) : m_ptr{ptr} {}
 
-                auto operator++() -> NodePtr {
-                    list_ptr = list_ptr->next;
-                    return this->list_ptr;
-                }
-
-                auto operator++(int) -> NodePtr {
-                    NodePtr current = list_ptr;
-                    list_ptr++;
-                    return current;
-                }
-
-                auto operator--() -> NodePtr {
-                    list_ptr = list_ptr->next;
+                auto operator++() -> Iterator
+                {
+                    m_ptr = m_ptr->next;
                     return *this;
                 }
 
-                auto operator--(int) -> NodePtr {
-                    NodePtr current = list_ptr;
-                    list_ptr--;
+                auto operator++(int) -> Iterator
+                {
+                    NodePtr current {m_ptr};
+                    ++(*this);
                     return current;
                 }
 
-                auto operator*() -> ValueType {
-                    return list_ptr->data;
+                auto operator--() -> Iterator
+                {
+                    m_ptr = m_ptr->prev;
+                    return *this;
                 }
 
-                auto operator->() -> NodePtr {
-                    return list_ptr;
+                auto operator--(int) -> Iterator
+                {
+                    NodePtr current {m_ptr};
+                    --(*this);
+                    return current;
                 }
 
-                auto operator==(const ListIterator& other) -> bool {
-                    return this->list_ptr == other.list_ptr;
+                auto operator*() -> ValueType&
+                {
+                    return m_ptr->data;
                 }
 
-                auto operator!=(const ListIterator& other) -> bool {
+                auto operator->() -> NodePtr& {
+                    return m_ptr;
+                }
+
+                explicit operator bool() const {
+                    return m_ptr != nullptr;
+                }
+
+                auto operator==(ListIterator& other) -> bool
+                {
+                    return (this->m_ptr == other.m_ptr);
+                }
+
+                auto operator!=(const ListIterator& other) -> bool
+                {
                     return !(*this == other);
                 }
-                
 
-            private:
-                NodePtr list_ptr;
         };
 
-    template<typename T>
-        class LinkedList {
+    template<typename T, typename Alloc = std::allocator<T>>
+        class List
+        {
             public:
                 using ValueType = T;
-                using iterator = ListIterator<LinkedList<T>>;
-                using NodePtr = Node<T>*;
+
             private:
-                NodePtr m_ListHead {nullptr};
-                NodePtr m_ListTail {nullptr};
-                size_t m_Size {0};
+                struct Node
+                {
+                    Node* prev;
+                    Node* next;
+                    ValueType data;
+
+                    template<typename... Args>
+                        Node(Args&&... args) : data{std::forward<Args>(args)...}
+                    {}
+
+                    auto operator*() -> ValueType {
+                        return this->data;
+                    }
+                };
 
             public:
-                LinkedList() = default;
+                using NodePtr = Node*;
+                using size_type = size_t;
+                using NodeAlloc = std::allocator_traits<Alloc>::template rebind_alloc<Node>;
+                using AllocTraits = std::allocator_traits<NodeAlloc>;
+                using iterator = ListIterator<List<T>>;
 
-                LinkedList(std::initializer_list<T> elements)
-                    : m_ListHead(nullptr), m_ListTail(nullptr), m_Size(0) {
-                        for (auto it { elements.begin() }; it != elements.end(); ++ it) {
-                            push_back(*it);
-                        }
-                    }
+            private:
+                NodeAlloc m_allocator;
+                NodePtr m_head {nullptr};
+                NodePtr m_tail {nullptr};
+                NodePtr m_end {nullptr};
+                size_type m_size {};
 
-                LinkedList(const LinkedList<T>& other) {
-                    this->m_ListHead = nullptr;
-                    this->m_ListTail = nullptr;
-                    this->m_Size = 0;
-                    NodePtr ptr { other.m_ListHead };
-                    while (ptr != nullptr) {
-                        push_back(ptr->data);
-                        ptr = ptr->next;
-                    }
+                auto construct_end() -> void {
+                    m_end = AllocTraits::allocate(m_allocator, 1);
+                    AllocTraits::construct(m_allocator, m_end, T{});
+                    m_end->prev = m_tail;
+                    m_end->next = nullptr;
                 }
 
-                LinkedList(LinkedList<T>&& other) {
-                    if (this != &other)
+                auto destroy_end() -> void {
+                      AllocTraits::destroy(m_allocator, m_end);
+                      AllocTraits::deallocate(m_allocator, m_end, 1);
+                }
+
+            public:
+                List() {
+                    construct_end();
+                }
+
+                List(std::initializer_list<T> elements)
+                {
+                    construct_end();
+
+                    for (auto it {elements.begin()}; it != elements.end(); ++it)
                     {
-                        clear();
-                        this->m_Size = other.m_Size;
-                        this->m_ListHead = other.m_ListHead;
-                        this->m_ListTail = other.m_ListTail;
-
-                        other.m_Size = 0;
-                        other.m_ListHead = nullptr;
-                        other.m_ListTail = nullptr;
+                        push_back(*it);
                     }
                 }
 
-                auto operator=(LinkedList<T>&& other) -> LinkedList<T>& {
-                    if (this != &other) {
-                        clear();
-                        this->m_Size = other.m_Size;
-                        this->m_ListHead = other.m_ListHead;
-                        this->m_ListTail = other.m_ListTail;
+                auto clear() -> void
+                {
+                    if (m_head == nullptr && m_head == m_tail) return;
 
-                        other.m_Size = 0;
-                        other.m_ListHead = nullptr;
-                        other.m_ListTail = nullptr;
+                    NodePtr current {m_head};
+                    NodePtr next_node {nullptr};
+
+                    while (current != m_end)
+                    {
+                        next_node = current->next;
+                        AllocTraits::destroy(m_allocator, current);
+                        AllocTraits::deallocate(m_allocator, current, 1);
+                        current = next_node;
                     }
-                    return *this;
+
+                    m_head = m_tail = nullptr;
+                    m_end->prev = nullptr;
+                    m_size = 0;
                 }
 
-                auto operator=(const LinkedList<T>& other) -> LinkedList<T>& {
-                    NodePtr ptr { other.m_ListHead };
-                    while (ptr != nullptr) {
+                List(const List<T>& other)
+                {
+                    clear();
+                    construct_end();
+
+                    for (NodePtr ptr {other.m_head}; ptr != nullptr; ptr = ptr->next)
+                    {
                         push_back(ptr->data);
-                        ptr = ptr->next;
                     }
+                }
+
+                List(List<T>&& other)
+                {
+                    clear();
+
+                    this->m_head = other.m_head;
+                    this->m_tail = other.m_tail;
+                    this->m_end = other.m_end;
+                    this->m_size = other.m_size;
+
+                    other.m_head = nullptr;
+                    other.m_tail = nullptr;
+                    other.m_end = nullptr;
+                    other.m_size = 0;
+                }
+
+                auto operator=(const List<T>& other) -> List<T>&
+                {
+                    clear();
+
+                    for (NodePtr ptr {other.m_head}; ptr != nullptr; ptr = ptr->next)
+                    {
+                        push_back(ptr->data);
+                    }
+
                     return *this;
                 }
 
-               auto push_back(T new_data) -> void {
-                    if (m_Size == 0) {
-                        push_front(new_data);
+                auto operator=(List<T>&& other) -> List<T>&
+                {
+                    clear();
+
+                    this->m_head = other.m_head;
+                    this->m_tail = other.m_tail;
+                    this->m_end = other.m_end;
+                    this->m_size = other.m_size;
+
+                    other.m_head = nullptr;
+                    other.m_tail = nullptr;
+                    other.m_end = nullptr;
+                    other.m_size = 0;
+
+                    return *this;
+                }
+
+                constexpr auto empty() const -> bool
+                {
+                    return m_size == 0;
+                }
+
+                constexpr auto size() const -> size_t
+                {
+                    return m_size;
+                }
+
+                auto front() const -> ValueType
+                {
+                    assert(this->m_head != nullptr);
+                    return m_head->data;
+                }
+
+                auto back() const -> ValueType
+                {
+                    assert(this->m_tail != nullptr);
+                    return m_tail->data;
+                }
+
+
+                auto insert(iterator pos, const T& val) -> void
+                {
+                    NodePtr temp { AllocTraits::allocate(m_allocator, 1) };
+                    AllocTraits::construct(m_allocator, temp, val);
+
+                    // insert before pos
+                    if (pos && pos->prev == nullptr) {
+                        temp->prev = nullptr;
+                        temp->next = m_head;
+                        m_head->prev = temp;
+                        m_head = temp;
+                    } else if (pos && pos->next == nullptr) {
+                        m_tail->prev->next = temp;
+                        temp->prev = m_tail->prev;
+                        temp->next = m_tail;
+                        m_tail->prev = temp;
+                    } else if (pos) {
+                        temp->next = pos->next->prev;
+                        temp->prev = pos->prev;
+                        pos->prev->next = temp;
+                        pos->prev = temp;
+                    } else {
+                        temp->prev = temp->next = nullptr;
+                        m_head = m_tail = temp;
+                        m_tail->next = m_end;
+                    }
+                    m_size++;
+                }
+
+                auto erase(iterator pos) -> void
+                {
+                    assert(!empty());
+
+                    if (pos == iterator{m_head} && m_head == m_tail) {
+                        AllocTraits::destroy(m_allocator, m_head);
+                        AllocTraits::deallocate(m_allocator, m_head, 1);
+                        m_head = m_tail = nullptr;
+                        m_size--;
                         return;
                     }
-                    NodePtr temp { new Node<T>() };
-                    temp->data = new_data;
-                    temp->next = nullptr;
-                    m_ListTail->next = temp;
-                    m_ListTail = temp;
-                    m_Size ++;
-                }
 
-                auto push_front(T new_data) -> void {
-                    NodePtr temp { new Node<T>() };
-                    temp->data = new_data;
-                    temp->next = m_ListHead;
-                    m_ListHead = temp;
-                    if (m_Size == 0) {
-                        m_ListTail = m_ListHead;
+                    NodePtr erase_node;
+
+                    if (pos && pos->prev == nullptr) {
+                        erase_node = m_head;
+                        m_head = m_head->next;
+                        m_head->prev = nullptr;
+                    } else if (pos && pos->next == nullptr) {
+                        erase_node = m_tail;
+                        m_tail = m_tail->prev;
+                        m_tail->next = m_end;
+                    } else if (pos) {
+                        erase_node = pos->prev->next;
+                        pos->prev->next = pos->next;
+                        pos->next->prev = pos->prev;
                     }
-                    m_Size ++;
+
+                    AllocTraits::destroy(m_allocator, erase_node);
+                    AllocTraits::deallocate(m_allocator, erase_node, 1);
+
+                    m_size--;
                 }
 
-                auto insert(iterator it, const T& data) -> void {
-                    NodePtr temp { new Node<T>() };
-                    temp->data = data;
-                    temp->next = it->next;
-                    it->next = temp;
-                    m_Size++;
+                template<typename... Args>
+                    auto emplace_back(Args&&... args) -> void
+                    {
+                        NodePtr temp { AllocTraits::allocate(m_allocator, 1) };
+                        AllocTraits::construct(m_allocator, temp, std::forward<Args>(args)...);
+
+                        if (!m_head)
+                        {
+                            temp->prev = nullptr;
+                            temp->next = m_end;
+                            m_head = m_tail = temp;
+                        } 
+                        else
+                        {
+                            m_tail->next = temp;
+                            temp->next = m_end;
+                            temp->prev = m_tail;
+                            m_end->prev = temp;
+                            m_tail = temp;
+                        }
+                        m_size++;
+                    }
+
+                auto push_back(const T& obj) -> void
+                {
+                    NodePtr temp { AllocTraits::allocate(m_allocator, 1) };
+                    AllocTraits::construct(m_allocator, temp, obj);
+
+                    if (!m_head)
+                    {
+                        temp->prev = nullptr;
+                        temp->next = m_end;
+                        m_head = m_tail = temp;
+                    } 
+                    else
+                    {
+                        m_tail->next = temp;
+                        temp->next = m_end;
+                        m_end->prev = temp;
+                        temp->prev = m_tail;
+                        m_tail = temp;
+                    }
+                    m_size++;
+                }
+
+                auto push_back(T&& obj) -> void
+                {
+                    emplace_back(std::move(obj));
+                }
+
+
+                auto pop_back() -> void
+                {
+                    assert(!empty());
+
+                    if (m_size == 1) {
+                        AllocTraits::destroy(m_allocator, m_head);
+                        AllocTraits::deallocate(m_allocator, m_head, 1);
+                        m_head = m_tail = nullptr;
+                        m_size--;
+                        return;
+                    }
+
+                    NodePtr current {m_tail};
+                    m_tail = m_tail->prev;
+                    m_tail->next = m_end;
+                    AllocTraits::destroy(m_allocator, current);
+                    AllocTraits::deallocate(m_allocator, current, 1);
+                    m_size--;
                 }
 
                 auto pop_front() -> void {
-                    if (m_Size == 0) return;
+                    assert(!empty());
 
-                    if (m_Size == 1) {
-                        delete m_ListHead;
-                        m_ListHead = nullptr;
-                        m_ListTail = m_ListHead;
-                        m_Size --;
+                    if (m_size == 1) {
+                        AllocTraits::destroy(m_allocator, m_head);
+                        AllocTraits::deallocate(m_allocator, m_head, 1);
+                        m_head = m_tail = nullptr;
+                        m_size--;
                         return;
                     }
 
-                    NodePtr current { m_ListHead };
-                    m_ListHead = m_ListHead->next;
-                    delete current;
-                    m_Size --;
+                    NodePtr current {m_head};
+                    m_head = m_head->next;
+                    m_head->prev = nullptr;
+                    AllocTraits::destroy(m_allocator, current);
+                    AllocTraits::deallocate(m_allocator, current, 1);
+                    m_size--;
                 }
 
-                auto pop_back() -> void {
-                    if (m_Size == 0) return;
-
-                    if (m_Size == 1) {
-                        delete m_ListHead;
-                        m_ListHead = nullptr;
-                        m_ListTail = m_ListHead;
-                        m_Size --;
-                        return;
-                    }
-
-                    NodePtr ptr { m_ListHead };
-                    while (ptr->next != nullptr)
-                    {
-                        if (ptr->next->next == nullptr) m_ListTail = ptr;
-                        ptr = ptr->next;
-                    }
-                    delete ptr->next;
-                    m_ListTail->next = nullptr;
-                    m_Size --;
+                auto begin() -> iterator
+                {
+                    return iterator{m_head};
                 }
 
-                auto begin() -> iterator {
-                    return {m_ListHead};
+                auto cbegin() -> const iterator {
+                    return iterator{m_head};
                 }
 
-                auto end() -> iterator {
-                    return {m_ListTail->next};
+                auto rbegin() -> iterator {
+                    return iterator{m_tail};
                 }
 
-                auto clear() -> void {
-                    if (m_Size == 0) return;
-
-                    NodePtr current {m_ListHead};
-                    NodePtr next_node {nullptr};
-
-                    while (current != nullptr)
-                    {
-                        next_node = current->next;
-                        delete current;
-                        current = next_node;
-                    }
-                    m_ListHead = nullptr;
-                    m_ListTail = nullptr;
-                    m_Size = 0;
+                auto end() -> iterator
+                {
+                    return iterator{m_end};
                 }
 
-                auto size() const -> size_t {
-                    return m_Size;
+                auto cend() -> const iterator
+                {
+                    return iterator{m_end};
                 }
 
-                auto at(size_t index) const -> T& {
-                    if (index >= m_Size) throw std::logic_error("Index out of bounds.");
-                    size_t i {};
-                    NodePtr list { m_ListHead };
-                    while (i < m_Size && i != index && list != nullptr) {
-                        list = list->next;
-                        i ++;
-                    }
-                    return list->data;
+                auto rend() -> iterator
+                {
+                    return iterator{m_end};
                 }
 
-                auto head() const -> NodePtr {
-                    return m_ListHead;
-                }
-
-                auto tail() const -> NodePtr {
-                    return m_ListTail;
-                }
-
-                auto front() const -> const T& {
-                    return m_ListHead->data;
-                }
-
-
-                auto back() const -> const T& {
-                    return m_ListTail->data;
-                }
-
-                ~LinkedList() {
-                    NodePtr current { m_ListHead };
-                    NodePtr next_node {};
-
-                    while (current != nullptr) {
-                        next_node = current->next;
-                        delete current;
-                        current = next_node;
-                    }
-                    std::cout << "Linked list destroyed safely.\n";
+                ~List()
+                {
+                    clear();
+                    destroy_end();
+                    std::cout << "List destroyed successfully.\n";
                 }
         };
 }

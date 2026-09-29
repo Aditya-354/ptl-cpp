@@ -7,7 +7,7 @@ message(STATUS "C++ standard: ${CMAKE_CXX_STANDARD}")
 add_executable(test)
 target_sources(test
     PRIVATE
-    src/linked_list_test.cpp
+    test/linked_list_test.cpp
 )
 
 add_subdirectory(ptl)
@@ -18,6 +18,6 @@ target_link_libraries(test
 )
 
 target_compile_options(test
-    INTERFACE
-    -Wall -Wextra -Werror Wpedantic
+    PRIVATE
+    -Wall -Wextra -Werror -Wpedantic -g -std=c++23
 )

@@ -1,34 +1,20 @@
 #include <iostream>
-// #include <print>
-#include "../ptl/list.hpp"
-
-void test() {
-    std::cout << "Testing " << __PRETTY_FUNCTION__ << ":\n";
-    ptl::LinkedList<int> list1  = {1, 2, 3, 4, 5, 6};
-    ptl::LinkedList<int> list2 {2, 4, 5};
-    list2 = std::move(list1);
-    ptl::LinkedList<int> list3;
-    list3 = std::move(list2);
-
-    const auto list_find {
-        [](ptl::LinkedList<int>& list, const int& el) -> ptl::LinkedList<int>::iterator
-        {
-            for (ptl::LinkedList<int>::iterator it {list.begin()};
-                    it != list.end(); ++it)
-                if (it->data == el) return it;
-            return list.end();
-        }
-    };
-
-    ptl::LinkedList<int>::iterator it {list_find(list3, 4)};
-    list3.insert(it, 25);
-
-    for (const auto& o : list3)
-        std::cout << o << '\n';
-}
+#include "list.hpp"
 
 int main()
 {
-    test();
+    dsa::List<int> l1 {};
+    l1.insert(l1.begin(), 1);
+    std::cout << l1.front() << '\n';
+    l1.pop_back();
+
+    l1.push_back(1);
+    l1.push_back(2);
+    l1.push_back(3);
+    l1.push_back(4);
+    l1.push_back(5);
+    for (dsa::List<int>::iterator it {l1.begin()}; it != l1.end(); it++)
+        std::cout << *it << '\n';
+    l1.clear();
     return 0;
 }
